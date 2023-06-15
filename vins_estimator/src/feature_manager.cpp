@@ -55,7 +55,6 @@ int FeatureManager::getFeatureCount()
  * @return true 
  * @return false 
  */
-
 bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, double td)
 {
     ROS_DEBUG("input feature: %d", (int)image.size());
@@ -66,23 +65,24 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vec
     // 遍历每个特征点
     for (auto &id_pts : image)
     {
-        // 用特征点信息构造一个对象
+        // 用特征点信息构造第k帧属性的对象
         FeaturePerFrame f_per_fra(id_pts.second[0].second, td);
 
-        int feature_id = id_pts.first;
+        int feature_id = id_pts.first; //取出id
         // 在已有的id中寻找是否是有相同的特征点
         auto it = find_if(feature.begin(), feature.end(), [feature_id](const FeaturePerId &it)
                           {
-            return it.feature_id == feature_id;
+            return it.feature_id == feature_id; //别被迷惑,继续运行
                           });
         // 这是一个新的特征点
         if (it == feature.end())
         {
             // 在特征点管理器中，新创建一个特征点id，这里的frame_count就是该特征点在滑窗中的当前位置，作为这个特征点的起始位置
-            feature.push_back(FeaturePerId(feature_id, frame_count));
-            feature.back().feature_per_frame.push_back(f_per_fra);
+            feature.push_back(FeaturePerId(feature_id, frame_count)); //创建特征点并压入特征点管理器
+            feature.back().feature_per_frame.push_back(f_per_fra); //为创建的特征点压入创建的k帧属性管理器
         }
-        // 如果这是一个已有的特征点，就在对应的“组织”下增加一个帧属性
+        // 如果这是一个已有的特征点，就在对应的在特征点管理器中，新创建一个特征点id，
+        // 这里的frame_count就是该特征点在滑窗中的当前位置，作为这个特征点的起始位置“组织”下增加一个帧属性
         else if (it->feature_id == feature_id)
         {
             it->feature_per_frame.push_back(f_per_fra);
@@ -93,14 +93,18 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vec
     if (frame_count < 2 || last_track_num < 20)
         return true;
 
-    for (auto &it_per_id : feature)
+    //计算视差看看是不是关键帧, 判断-2帧和-3帧而不是-1帧和-2帧
+    for (auto &it_per_id : feature) //遍历特征点
     {
         // 计算的实际上是frame_count-1,也就是前一帧是否为关键帧
         // 因此起始帧至少得是frame_count - 2,同时至少覆盖到frame_count - 1帧
-        if (it_per_id.start_frame <= frame_count - 2 &&
+        // <- |           |
+        //    *  *  *  *  *  * 
+        // 新插入关键帧的特征点和特征点最开始出现时的距离要远
+        if (it_per_id.start_frame <= frame_count - 2 && //最先看到这个特征点的帧是在现在帧的前2帧之前
             it_per_id.start_frame + int(it_per_id.feature_per_frame.size()) - 1 >= frame_count - 1)
         {
-            parallax_sum += compensatedParallax2(it_per_id, frame_count);
+            parallax_sum += compensatedParallax2(it_per_id, frame_count); //计算
             parallax_num++;
         }
     }
@@ -142,17 +146,16 @@ void FeatureManager::debugShow()
 /**
  * @brief 得到同时被frame_count_l frame_count_r帧看到的特征点在各自的坐标
  * 
- * @param[in] frame_count_l 
- * @param[in] frame_count_r 
+ * @param[in] frame_count_l, 上一帧 
+ * @param[in] frame_count_r, 这一帧
  * @return vector<pair<Vector3d, Vector3d>> 
  */
-
 vector<pair<Vector3d, Vector3d>> FeatureManager::getCorresponding(int frame_count_l, int frame_count_r)
 {
     vector<pair<Vector3d, Vector3d>> corres;
     for (auto &it : feature)
     {
-        // 保证需要的特征点被这两帧都观察到
+        // 保证需要的特征点被这两帧都观察到, 起始和结束帧之间的帧应该都能看到这个特征点
         if (it.start_frame <= frame_count_l && it.endFrame() >= frame_count_r)
         {
             Vector3d a = Vector3d::Zero(), b = Vector3d::Zero();

@@ -39,6 +39,7 @@ T readParam(ros::NodeHandle &n, std::string name)
     return ans;
 }
 
+//读取参数, 从yaml中
 void readParameters(ros::NodeHandle &n)
 {
     std::string config_file;
@@ -54,7 +55,7 @@ void readParameters(ros::NodeHandle &n)
     SOLVER_TIME = fsSettings["max_solver_time"];    // 单次优化最大求解时间
     NUM_ITERATIONS = fsSettings["max_num_iterations"];  // 单词优化最大迭代次数
     MIN_PARALLAX = fsSettings["keyframe_parallax"]; // 根据视差确定关键帧
-    MIN_PARALLAX = MIN_PARALLAX / FOCAL_LENGTH;
+    MIN_PARALLAX = MIN_PARALLAX / FOCAL_LENGTH; //虚拟相机trick,归一化相机平面
 
     std::string OUTPUT_PATH;
     fsSettings["output_path"] >> OUTPUT_PATH;
@@ -78,7 +79,7 @@ void readParameters(ros::NodeHandle &n)
     ROS_INFO("ROW: %f COL: %f ", ROW, COL);
 
     ESTIMATE_EXTRINSIC = fsSettings["estimate_extrinsic"];
-    if (ESTIMATE_EXTRINSIC == 2)
+    if (ESTIMATE_EXTRINSIC == 2) //没有外参旋转先验值时,赋初始值0
     {
         ROS_WARN("have no prior about extrinsic param, calibrate extrinsic param");
         RIC.push_back(Eigen::Matrix3d::Identity());
@@ -88,12 +89,12 @@ void readParameters(ros::NodeHandle &n)
     }
     else 
     {
-        if ( ESTIMATE_EXTRINSIC == 1)
+        if ( ESTIMATE_EXTRINSIC == 1) //比较准的外参先验,直接优化
         {
             ROS_WARN(" Optimize extrinsic param around initial guess!");
             EX_CALIB_RESULT_PATH = OUTPUT_PATH + "/extrinsic_parameter.csv";
         }
-        if (ESTIMATE_EXTRINSIC == 0)
+        if (ESTIMATE_EXTRINSIC == 0) //特别准的外参先验值,直接固定
             ROS_WARN(" fix extrinsic param ");
 
         cv::Mat cv_R, cv_T;
@@ -112,8 +113,8 @@ void readParameters(ros::NodeHandle &n)
         
     } 
 
-    INIT_DEPTH = 5.0;
-    BIAS_ACC_THRESHOLD = 0.1;
+    INIT_DEPTH = 5.0; //特征点深度默认值,三角化用到
+    BIAS_ACC_THRESHOLD = 0.1; //没用到
     BIAS_GYR_THRESHOLD = 0.1;
 
     // 传感器时间延时相关

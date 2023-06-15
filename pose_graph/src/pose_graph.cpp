@@ -64,7 +64,7 @@ void PoseGraph::addKeyFrame(KeyFrame* cur_kf, bool flag_detect_loop)
         r_drift = Eigen::Matrix3d::Identity();
         m_drift.unlock();
     }
-    // 更新一下VIO位姿
+    // 更新一下VIO位姿, 老的坐标系当成基本坐标系
     cur_kf->getVioPose(vio_P_cur, vio_R_cur);   // 得到VIO节点的位姿
     vio_P_cur = w_r_vio * vio_P_cur + w_t_vio;  // 回环修正后的消除累计误差的位姿
     vio_R_cur = w_r_vio *  vio_R_cur;
@@ -75,18 +75,18 @@ void PoseGraph::addKeyFrame(KeyFrame* cur_kf, bool flag_detect_loop)
     if (flag_detect_loop)
     {
         TicToc tmp_t;
-        loop_index = detectLoop(cur_kf, cur_kf->index);
+        loop_index = detectLoop(cur_kf, cur_kf->index); //当前帧和当前帧索引
     }
     else
     {
         addKeyFrameIntoVoc(cur_kf);
     }
-	if (loop_index != -1)   // 代表找到了有效的回环帧
+	if (loop_index != -1)   // 代表找到了有效的回环帧 ,通过描述子和几何关系确认
 	{
         //printf(" %d detect loop with %d \n", cur_kf->index, loop_index);
         KeyFrame* old_kf = getKeyFrame(loop_index); // 得到回环帧的指针
 
-        if (cur_kf->findConnection(old_kf)) // 如果确定两者回环
+        if (cur_kf->findConnection(old_kf)) // 如果确定两者回环, 用当前帧和回环帧两个去验证
         {
             // 更新最早回环帧，用来确定全局优化的范围
             if (earliest_loop_index > loop_index || earliest_loop_index == -1)
@@ -114,7 +114,7 @@ void PoseGraph::addKeyFrame(KeyFrame* cur_kf, bool flag_detect_loop)
             shift_r = Utility::ypr2R(Vector3d(shift_yaw, 0, 0));
             shift_t = w_P_cur - w_R_cur * vio_R_cur.transpose() * vio_P_cur; 
             // shift vio pose of whole sequence to the world frame
-            // 如果这两个不是同一个sequence，并且当前sequence没有跟之前合并
+            // 如果这两个不是同一个sequence，并且当前sequence没有跟之前合并(不同地图间的合并)
             if (old_kf->sequence != cur_kf->sequence && sequence_loop[cur_kf->sequence] == 0)
             {  
                 w_r_vio = shift_r;
@@ -247,7 +247,7 @@ void PoseGraph::loadKeyFrame(KeyFrame* cur_kf, bool flag_detect_loop)
         // 把当前帧的信息加载进数据库中，用来后续进行回环检测
         addKeyFrameIntoVoc(cur_kf);
     }
-    if (loop_index != -1)
+    if (loop_index != -1) //找到了回环
     {
         printf(" %d detect loop with %d \n", cur_kf->index, loop_index);
         KeyFrame* old_kf = getKeyFrame(loop_index);
@@ -333,12 +333,18 @@ KeyFrame* PoseGraph::getKeyFrame(int index)
         return NULL;
 }
 
-// 进行回环检测，寻找候选的回环帧
+/**
+ * @brief 进行回环检测，寻找候选的回环帧
+ *
+ * @param keyframe
+ * @param frame_index
+ * @return int
+ */
 int PoseGraph::detectLoop(KeyFrame* keyframe, int frame_index)
 {
     // put image into image_pool; for visualization
     cv::Mat compressed_image;
-    if (DEBUG_IMAGE)
+    if (DEBUG_IMAGE) //就是配置文件中的save_image是不是true
     {
         int feature_num = keyframe->keypoints.size();
         cv::resize(keyframe->image, compressed_image, cv::Size(376, 240));
@@ -450,7 +456,7 @@ void PoseGraph::optimize4DoF()
         int cur_index = -1;
         int first_looped_index = -1;
         m_optimize_buf.lock();
-        // 取出最新的形成回环的当前帧
+        // 取出最新的形成回环的当前帧 (最早的,写错了吧)
         while(!optimize_buf.empty())
         {
             cur_index = optimize_buf.front();
@@ -458,7 +464,7 @@ void PoseGraph::optimize4DoF()
             optimize_buf.pop();
         }
         m_optimize_buf.unlock();
-        if (cur_index != -1)
+        if (cur_index != -1) //没有检测出回环
         {
             printf("optimize pose graph \n");
             TicToc tmp_t;
@@ -619,7 +625,7 @@ void PoseGraph::optimize4DoF()
                 (*it)->getVioPose(P, R);
                 P = r_drift * P + t_drift;
                 R = r_drift * R;
-                (*it)->updatePose(P, R);
+                (*it)->updatePose(P, R); //没有更新VIO的pose
             }
             m_keyframelist.unlock();
             // 可视化部分

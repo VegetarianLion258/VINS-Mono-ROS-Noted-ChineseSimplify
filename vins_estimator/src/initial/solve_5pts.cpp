@@ -198,7 +198,6 @@ namespace cv {
  * @return true 
  * @return false 
  */
-
 bool MotionEstimator::solveRelativeRT(const vector<pair<Vector3d, Vector3d>> &corres, Matrix3d &Rotation, Vector3d &Translation)
 {
     if (corres.size() >= 15)
@@ -221,7 +220,7 @@ bool MotionEstimator::solveRelativeRT(const vector<pair<Vector3d, Vector3d>> &co
 
         Eigen::Matrix3d R;
         Eigen::Vector3d T;
-        // cv -> eigen
+        // cv 转为 eigen
         for (int i = 0; i < 3; i++)
         {   
             T(i) = trans.at<double>(i, 0);
@@ -231,7 +230,7 @@ bool MotionEstimator::solveRelativeRT(const vector<pair<Vector3d, Vector3d>> &co
         // opencv得到的是T21,这里换成T12
         Rotation = R.transpose();
         Translation = -R.transpose() * T;
-        if(inlier_cnt > 12)
+        if(inlier_cnt > 12) //内点数>12才可信
             return true;
         else
             return false;

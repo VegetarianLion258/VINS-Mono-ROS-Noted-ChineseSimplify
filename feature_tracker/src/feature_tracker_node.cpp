@@ -31,7 +31,7 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
     if(first_image_flag) // 对第一帧图像的基本操作
     {
         first_image_flag = false;
-        first_image_time = img_msg->header.stamp.toSec();
+        first_image_time = img_msg->header.stamp.toSec(); //得到时间戳
         last_image_time = img_msg->header.stamp.toSec();
         return;
     }
@@ -57,7 +57,7 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
     {
         PUB_THIS_FRAME = true;
         // reset the frequency control
-        // 这段时间的频率和预设频率十分接近，就认为这段时间很棒，重启一下，避免delta t太大
+        // 这段时间的频率和预设频率十分接近，就认为这段时间很棒，重启一下，避免delta t太大, 降低敏感度
         if (abs(1.0 * pub_count / (img_msg->header.stamp.toSec() - first_image_time) - FREQ) < 0.01 * FREQ)
         {
             first_image_time = img_msg->header.stamp.toSec();
@@ -122,6 +122,7 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
    if (PUB_THIS_FRAME)
    {
         pub_count++;    // 计数器更新
+        //feature_point变量存储了点云的归一化3D坐标(z=1),点的唯一id,2D坐标,像素速度
         sensor_msgs::PointCloudPtr feature_points(new sensor_msgs::PointCloud);
         sensor_msgs::ChannelFloat32 id_of_point;
         sensor_msgs::ChannelFloat32 u_of_point;
@@ -138,7 +139,7 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
             auto &un_pts = trackerData[i].cur_un_pts;   // 去畸变的归一化相机坐标系
             auto &cur_pts = trackerData[i].cur_pts; // 像素坐标
             auto &ids = trackerData[i].ids; // id
-            auto &pts_velocity = trackerData[i].pts_velocity;   // 归一化坐标下的速度
+            auto &pts_velocity = trackerData[i].pts_velocity;   // 归一化坐标下的速度(单位:pixel/second)
             for (unsigned int j = 0; j < ids.size(); j++)
             {
                 // 只发布追踪大于1的，因为等于1没法构成重投影约束，也没法三角化
@@ -151,11 +152,11 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
                     p.y = un_pts[j].y;
                     p.z = 1;
                     // 利用这个ros消息的格式进行信息存储
-                    feature_points->points.push_back(p);
-                    id_of_point.values.push_back(p_id * NUM_OF_CAM + i);
-                    u_of_point.values.push_back(cur_pts[j].x);
+                    feature_points->points.push_back(p); //点的三维信息
+                    id_of_point.values.push_back(p_id * NUM_OF_CAM + i); //点的id
+                    u_of_point.values.push_back(cur_pts[j].x); //点云在图上的x,y坐标
                     v_of_point.values.push_back(cur_pts[j].y);
-                    velocity_x_of_point.values.push_back(pts_velocity[j].x);
+                    velocity_x_of_point.values.push_back(pts_velocity[j].x); //点云在图上的点的速度
                     velocity_y_of_point.values.push_back(pts_velocity[j].y);
                 }
             }
@@ -221,7 +222,7 @@ int main(int argc, char **argv)
     ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);    // 设置ros log级别
     readParameters(n); // 读取配置文件
 
-    for (int i = 0; i < NUM_OF_CAM; i++)
+    for (int i = 0; i < NUM_OF_CAM; i++) //parameters.h中写死是1
         trackerData[i].readIntrinsicParameter(CAM_NAMES[i]);    // 获得每个相机的内参
 
     if(FISHEYE)

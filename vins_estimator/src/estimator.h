@@ -64,7 +64,7 @@ class Estimator
 
     SolverFlag solver_flag;
     MarginalizationFlag  marginalization_flag;
-    Vector3d g;
+    Vector3d g; //重力方向
     MatrixXd Ap[2], backup_A;
     VectorXd bp[2], backup_b;
 

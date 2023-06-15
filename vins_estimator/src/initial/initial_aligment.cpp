@@ -34,7 +34,7 @@ void solveGyroscopeBias(map<double, ImageFrame> &all_image_frame, Vector3d* Bgs)
     // 滑窗中的零偏设置为求解出来的零偏
     for (int i = 0; i <= WINDOW_SIZE; i++)
         Bgs[i] += delta_bg;
-    // 对all_image_frame中预积分量根据当前零偏重新积分
+    // 对all_image_frame中预积分量根据当前零偏重新积分,是重新积分不是预积分,因为加入bias之后变化可能很大
     for (frame_i = all_image_frame.begin(); next(frame_i) != all_image_frame.end( ); frame_i++)
     {
         frame_j = next(frame_i);
@@ -68,11 +68,11 @@ MatrixXd TangentBasis(Vector3d &g0)
 void RefineGravity(map<double, ImageFrame> &all_image_frame, Vector3d &g, VectorXd &x)
 {
     // 参考论文
-    Vector3d g0 = g.normalized() * G.norm();
+    Vector3d g0 = g.normalized() * G.norm(); //g0=||g||*g^{^hat}_{c0}, g是模长限制,另一个是g的单位向量
     Vector3d lx, ly;
     //VectorXd x;
     int all_frame_count = all_image_frame.size();
-    int n_state = all_frame_count * 3 + 2 + 1;
+    int n_state = all_frame_count * 3 + 2 + 1; //已知重力:3* N + 3 + 1 ?把重力分解成了两个向量(重力大小这个量已知了)
 
     MatrixXd A{n_state, n_state};
     A.setZero();
@@ -81,7 +81,7 @@ void RefineGravity(map<double, ImageFrame> &all_image_frame, Vector3d &g, Vector
 
     map<double, ImageFrame>::iterator frame_i;
     map<double, ImageFrame>::iterator frame_j;
-    for(int k = 0; k < 4; k++)
+    for(int k = 0; k < 4; k++) //四次迭代
     {
         MatrixXd lxly(3, 2);
         lxly = TangentBasis(g0);
@@ -90,14 +90,15 @@ void RefineGravity(map<double, ImageFrame> &all_image_frame, Vector3d &g, Vector
         {
             frame_j = next(frame_i);
 
-            MatrixXd tmp_A(6, 9);
+            // AX = b
+            MatrixXd tmp_A(6, 9); //3*9 + 3*9 见式19
             tmp_A.setZero();
             VectorXd tmp_b(6);
             tmp_b.setZero();
 
             double dt = frame_j->second.pre_integration->sum_dt;
 
-
+            // 按照式19填充
             tmp_A.block<3, 3>(0, 0) = -dt * Matrix3d::Identity();
             tmp_A.block<3, 2>(0, 6) = frame_i->second.R.transpose() * dt * dt / 2 * Matrix3d::Identity() * lxly;
             tmp_A.block<3, 1>(0, 8) = frame_i->second.R.transpose() * (frame_j->second.T - frame_i->second.T) / 100.0;     
@@ -116,11 +117,12 @@ void RefineGravity(map<double, ImageFrame> &all_image_frame, Vector3d &g, Vector
 
             MatrixXd r_A = tmp_A.transpose() * cov_inv * tmp_A;
             VectorXd r_b = tmp_A.transpose() * cov_inv * tmp_b;
-
+            
+            //填充A矩阵, b向量
             A.block<6, 6>(i * 3, i * 3) += r_A.topLeftCorner<6, 6>();
             b.segment<6>(i * 3) += r_b.head<6>();
 
-            A.bottomRightCorner<3, 3>() += r_A.bottomRightCorner<3, 3>();
+            A.bottomRightCorner<3, 3>() += r_A.bottomRightCorner<3, 3>(); //重复写入?
             b.tail<3>() += r_b.tail<3>();
 
             A.block<6, 3>(i * 3, n_state - 3) += r_A.topRightCorner<6, 3>();
@@ -149,7 +151,7 @@ bool LinearAlignment(map<double, ImageFrame> &all_image_frame, Vector3d &g, Vect
 {
     // 这一部分内容对照论文进行理解
     int all_frame_count = all_image_frame.size();
-    int n_state = all_frame_count * 3 + 3 + 1;
+    int n_state = all_frame_count * 3 + 3 + 1; // 3N+3+1
 
     MatrixXd A{n_state, n_state};
     A.setZero();

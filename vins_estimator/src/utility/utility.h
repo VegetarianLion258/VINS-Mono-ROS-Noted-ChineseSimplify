@@ -13,6 +13,12 @@ class Utility
 {
   public:
     template <typename Derived>
+    /**
+     * @brief 把旋转向量转为四元数(δq必须很小才满足)
+     * 
+     * @param theta 
+     * @return Eigen::Quaternion<typename Derived::Scalar> 
+     */
     static Eigen::Quaternion<typename Derived::Scalar> deltaQ(const Eigen::MatrixBase<Derived> &theta)
     {
         typedef typename Derived::Scalar Scalar_t;
@@ -27,6 +33,13 @@ class Utility
         return dq;
     }
 
+    /**
+     * @brief 反对称矩阵
+     * 
+     * @tparam Derived 
+     * @param q 
+     * @return Eigen::Matrix<typename Derived::Scalar, 3, 3> 
+     */
     template <typename Derived>
     static Eigen::Matrix<typename Derived::Scalar, 3, 3> skewSymmetric(const Eigen::MatrixBase<Derived> &q)
     {

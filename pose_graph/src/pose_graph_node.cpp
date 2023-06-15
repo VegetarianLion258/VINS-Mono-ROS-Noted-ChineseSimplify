@@ -67,7 +67,7 @@ Eigen::Vector3d last_t(-100, -100, -100);
 double last_image_time = -1;
 
 /**
- * @brief 新建一个sequence
+ * @brief 新建一个sequence, 把image,point,pose,odom数据都清空
  * 
  */
 void new_sequence()
@@ -329,7 +329,7 @@ void process()
 
         // find out the messages with same time stamp
         m_buf.lock();
-        // 做一个时间戳对齐，涉及到原图，KF位姿以及KF对应地图点
+        // 做一个时间戳对齐，涉及到原图，KF位姿以及KF对应地图点(vins estimate发的)
         if(!image_buf.empty() && !point_buf.empty() && !pose_buf.empty())
         {
             // 原图时间戳比另外两个晚，只能扔掉早于第一个原图的消息
@@ -372,7 +372,7 @@ void process()
             //printf(" point time %f \n", point_msg->header.stamp.toSec());
             //printf(" image time %f \n", image_msg->header.stamp.toSec());
             // skip fisrt few
-            if (skip_first_cnt < SKIP_FIRST_CNT)    // 跳过最开始的SKIP_FIRST_CNT帧
+            if (skip_first_cnt < SKIP_FIRST_CNT)    // 跳过最开始的SKIP_FIRST_CNT帧 10帧
             {
                 skip_first_cnt++;
                 continue;
@@ -488,13 +488,13 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "pose_graph");
     ros::NodeHandle n("~");
-    posegraph.registerPub(n);
+    posegraph.registerPub(n); //注册发布的话题(可能是可视化要用)
 
     // read param
     n.getParam("visualization_shift_x", VISUALIZATION_SHIFT_X); // 这两个shift基本都是0
     n.getParam("visualization_shift_y", VISUALIZATION_SHIFT_Y);
-    n.getParam("skip_cnt", SKIP_CNT);   // 跳过前SKIP_CNT帧
-    n.getParam("skip_dis", SKIP_DIS);   // 两帧距离门限
+    n.getParam("skip_cnt", SKIP_CNT);   // 跳过前SKIP_CNT帧,不做回环检测,因为累积漂移不大
+    n.getParam("skip_dis", SKIP_DIS);   // 两帧距离门限, delta_d要大,而不是转动角度大
     std::string config_file;
     n.getParam("config_file", config_file);
     cv::FileStorage fsSettings(config_file, cv::FileStorage::READ);
@@ -507,7 +507,7 @@ int main(int argc, char **argv)
     cameraposevisual.setScale(camera_visual_size);
     cameraposevisual.setLineWidth(camera_visual_size / 10.0);
 
-    // 是否进行回环检测的标识
+    // 是否进行回环检测的标识, 如果不回环, 就只是可视化
     LOOP_CLOSURE = fsSettings["loop_closure"];
     std::string IMAGE_TOPIC;
     int LOAD_PREVIOUS_POSE_GRAPH;
@@ -542,7 +542,7 @@ int main(int argc, char **argv)
         fout.close();
         fsSettings.release();
 
-        if (LOAD_PREVIOUS_POSE_GRAPH)
+        if (LOAD_PREVIOUS_POSE_GRAPH) //离线地图的加载
         {
             printf("load pose graph\n");
             m_process.lock();

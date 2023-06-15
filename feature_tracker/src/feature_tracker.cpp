@@ -10,7 +10,7 @@ bool inBorder(const cv::Point2f &pt)
     return BORDER_SIZE <= img_x && img_x < COL - BORDER_SIZE && BORDER_SIZE <= img_y && img_y < ROW - BORDER_SIZE;
 }
 
-// 根据状态位，进行“瘦身”
+// 根据状态位，进行“瘦身”,只保留有用的, (双指针赋值)
 void reduceVector(vector<cv::Point2f> &v, vector<uchar> status)
 {
     int j = 0;
@@ -84,8 +84,8 @@ void FeatureTracker::addPoints()
 }
 
 /**
- * @brief 
- * 
+ * @brief 图像均衡化预处理,光流追踪,提取新的特征点,特征点去畸变,计算特征点速度
+ *
  * @param[in] _img 输入图像
  * @param[in] _cur_time 图像的时间戳
  * 1、图像均衡化预处理
@@ -99,11 +99,11 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
     TicToc t_r;
     cur_time = _cur_time;
 
-    if (EQUALIZE)
+    if (EQUALIZE) //若需要均衡化
     {
         // 图像太暗或者太亮，提特征点比较难，所以均衡化一下
         // ! opencv 函数看一下
-        cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
+        cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8)); //CLAHE特征点提取
         TicToc t_c;
         clahe->apply(_img, img);
         ROS_DEBUG("CLAHE costs: %fms", t_c.toc());
@@ -112,7 +112,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
         img = _img;
 
     // 这里forw表示当前，cur表示上一帧
-    if (forw_img.empty())   // 第一次输入图像，prev_img这个没用
+    if (forw_img.empty())   // 第一帧时，prev_img这个没用
     {
         prev_img = cur_img = forw_img = img;
     }
@@ -121,7 +121,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
         forw_img = img;
     }
 
-    forw_pts.clear();
+    forw_pts.clear(); //特征点清空
 
     if (cur_pts.size() > 0) // 上一帧有特征点，就可以进行光流追踪了
     {
@@ -134,14 +134,14 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
 
         for (int i = 0; i < int(forw_pts.size()); i++)
             // Step 2 通过图像边界剔除outlier
-            if (status[i] && !inBorder(forw_pts[i]))    // 追踪状态好检查在不在图像范围
+            if (status[i] && !inBorder(forw_pts[i])) //TODO:追踪到切在第二张图像内, 应该改成||?
                 status[i] = 0;
-        reduceVector(prev_pts, status); // 没用到
-        reduceVector(cur_pts, status);
+        reduceVector(prev_pts, status); // 没用到, 上上帧的特征点
+        reduceVector(cur_pts, status);  //上一帧的特征点
         reduceVector(forw_pts, status);
         reduceVector(ids, status);  // 特征点的id
         reduceVector(cur_un_pts, status);   // 去畸变后的坐标
-        reduceVector(track_cnt, status);    // 追踪次数
+        reduceVector(track_cnt, status);    // 特征点被追踪的次数
         ROS_DEBUG("temporal optical flow costs: %fms", t_o.toc());
     }
     // 被追踪到的是上一帧就存在的，因此追踪数+1
@@ -168,8 +168,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
                 cout << "mask type wrong " << endl;
             if (mask.size() != forw_img.size())
                 cout << "wrong size " << endl;
-            // 只有发布才可以提取更多特征点，同时避免提的点进mask
-            // 会不会这些点集中？会，不过没关系，他们下一次作为老将就得接受均匀化的洗礼
+            // 只有发布才可以提取更多特征点，同时避免提的点进mask(圆圈内)
             cv::goodFeaturesToTrack(forw_img, n_pts, MAX_CNT - forw_pts.size(), 0.01, MIN_DIST, mask);
         }
         else
@@ -191,7 +190,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
 }
 
 /**
- * @brief 
+ * @brief 通过对极约束剔除外点
  * 
  */
 void FeatureTracker::rejectWithF()
@@ -236,12 +235,11 @@ void FeatureTracker::rejectWithF()
 }
 
 /**
- * @brief 
- * 
- * @param[in] i 
- * @return true 
- * @return false 
- *  给新的特征点赋上id,越界就返回false
+ * @brief 给新的特征点赋上id,越界就返回false
+ *
+ * @param[in] i
+ * @return true
+ * @return false
  */
 bool FeatureTracker::updateID(unsigned int i)
 {
@@ -255,6 +253,7 @@ bool FeatureTracker::updateID(unsigned int i)
         return false;
 }
 
+// 读到的相机内参赋给m_camera
 void FeatureTracker::readIntrinsicParameter(const string &calib_file)
 {
     ROS_INFO("reading paramerter of camera %s", calib_file.c_str());
@@ -298,7 +297,10 @@ void FeatureTracker::showUndistortion(const string &name)
     cv::waitKey(0);
 }
 
-// 当前帧所有点统一去畸变，同时计算特征点速度，用来后续时间戳标定
+/**
+ * @brief 当前帧所有点统一去畸变，同时计算特征点速度，用来后续时间戳标定
+ *
+ */
 void FeatureTracker::undistortedPoints()
 {
     cur_un_pts.clear();

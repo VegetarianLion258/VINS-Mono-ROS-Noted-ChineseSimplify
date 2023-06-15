@@ -30,7 +30,7 @@ KeyFrame::KeyFrame(double _time_stamp, int _index, Vector3d &_vio_T_w_i, Matrix3
 		           vector<double> &_point_id, int _sequence)
 {
 	time_stamp = _time_stamp;
-	index = _index;
+	index = _index; //回环图像索引
 	vio_T_w_i = _vio_T_w_i;
 	vio_R_w_i = _vio_R_w_i;
 	T_w_i = vio_T_w_i;
@@ -47,16 +47,16 @@ KeyFrame::KeyFrame(double _time_stamp, int _index, Vector3d &_vio_T_w_i, Matrix3
 	loop_index = -1;
 	has_fast_point = false;
 	loop_info << 0, 0, 0, 0, 0, 0, 0, 0;
-	sequence = _sequence;
-	computeWindowBRIEFPoint();
-	computeBRIEFPoint();
+	sequence = _sequence; 
+	computeWindowBRIEFPoint(); //计算描述子
+	computeBRIEFPoint();	//额外提取fast特征点
 	if(!DEBUG_IMAGE)
 		image.release();
 }
 
 // load previous keyframe
 /**
- * @brief Construct a new Key Frame:: Key Frame object从已有的地图中加载KF，就是一些简单的赋值操作
+ * @brief Construct a new Key Frame:: Key Frame object从已有的地图中加载KF，就是一些简单的赋值操作,不用提取描述子
  * 
  * @param[in] _time_stamp 
  * @param[in] _index 
@@ -147,6 +147,7 @@ void KeyFrame::computeBRIEFPoint()
 	}
 }
 
+//调用dbow的接口计算描述子/
 void BriefExtractor::operator() (const cv::Mat &im, vector<cv::KeyPoint> &keys, vector<BRIEF::bitset> &descriptors) const
 {
   m_brief.compute(im, keys, descriptors);	// 调用dbow的接口计算描述子
@@ -178,7 +179,7 @@ bool KeyFrame::searchInAera(const BRIEF::bitset window_descriptor,
     for(int i = 0; i < (int)descriptors_old.size(); i++)
     {
 
-        int dis = HammingDis(window_descriptor, descriptors_old[i]);	// 计算两个描述子之间的得分
+        int dis = HammingDis(window_descriptor, descriptors_old[i]);	// 计算两个描述子之间的得分,汉明距离
         if(dis < bestDist)	// 找到匹配得分最高的
         {
             bestDist = dis;
@@ -257,7 +258,7 @@ void KeyFrame::FundmantalMatrixRANSAC(const std::vector<cv::Point2f> &matched_2d
 }
 
 /**
- * @brief 通过PNP对当前帧和回环是否构成回环进行校验
+ * @brief 通过PNP对当前帧和回环是否构成回环进行校验,计算当前帧和回环候选帧的delta_t
  * 
  * @param[in] matched_2d_old_norm 回环帧2d归一化坐标
  * @param[in] matched_3d 当前帧3d地图点
@@ -341,11 +342,11 @@ bool KeyFrame::findConnection(KeyFrame* old_kf)
 	vector<cv::Point3f> matched_3d;
 	vector<double> matched_id;
 	vector<uchar> status;
-
-	matched_3d = point_3d;
-	matched_2d_cur = point_2d_uv;
-	matched_2d_cur_norm = point_2d_norm;
-	matched_id = point_id;
+	//备份一下
+	matched_3d = point_3d; //地图点
+	matched_2d_cur = point_2d_uv; //像素坐标
+	matched_2d_cur_norm = point_2d_norm; //归一化相机下的坐标
+	matched_id = point_id; //特征点索引
 
 	TicToc t_match;
 	#if 0
@@ -376,7 +377,7 @@ bool KeyFrame::findConnection(KeyFrame* old_kf)
 	//printf("search by des\n");
 	// 通过描述子来check
 	searchByBRIEFDes(matched_2d_old, matched_2d_old_norm, status, old_kf->brief_descriptors, old_kf->keypoints, old_kf->keypoints_norm);
-	// 操作跟光流追踪类似，根据状态位进行筛选
+	// 操作跟光流追踪类似，根据状态位进行筛选,瘦身
 	reduceVector(matched_2d_cur, status);	// 当前帧的像素坐标
 	reduceVector(matched_2d_old, status);	// 回环帧的像素坐标
 	reduceVector(matched_2d_cur_norm, status);	// 当前帧的归一化坐标
@@ -549,7 +550,7 @@ bool KeyFrame::findConnection(KeyFrame* old_kf)
 	        }
 	    #endif
 	}
-	// 根据PNP的内点数进行判断，足够才认为回环可能成功
+	// 根据PNP的内点数进行判断，足够才认为回环可能成功 > 25
 	if ((int)matched_2d_cur.size() > MIN_LOOP_NUM)
 	{
 	    //  T_old_w * T_w_cur = T_old_cur; old:回环帧 cur：当前帧
@@ -569,7 +570,7 @@ bool KeyFrame::findConnection(KeyFrame* old_kf)
 	    	loop_info << relative_t.x(), relative_t.y(), relative_t.z(),
 	    	             relative_q.w(), relative_q.x(), relative_q.y(), relative_q.z(),
 	    	             relative_yaw;
-	    	if(FAST_RELOCALIZATION)
+	    	if(FAST_RELOCALIZATION) //和vio节点的交互
 	    	{
 			    sensor_msgs::PointCloud msg_match_points;
 			    msg_match_points.header.stamp = ros::Time(time_stamp);
