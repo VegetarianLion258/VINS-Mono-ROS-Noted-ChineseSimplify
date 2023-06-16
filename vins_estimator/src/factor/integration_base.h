@@ -35,7 +35,7 @@ class IntegrationBase
         noise.block<3, 3>(15, 15) =  (GYR_W * GYR_W) * Eigen::Matrix3d::Identity();
     }
     /**
-     * @brief 来一帧imu后的接口
+     * @brief 来一帧imu后的接口, 调用propagate
      * 
      * @param dt 
      * @param acc 
@@ -166,12 +166,19 @@ class IntegrationBase
 
             //step_jacobian = F;
             //step_V = V;
-            jacobian = F * jacobian; //Jacobian matrix
+            jacobian = F * jacobian; //实时更新Jacobian矩阵,始终在当前时间的状态下近似非线性
             covariance = F * covariance * F.transpose() + V * noise * V.transpose(); //Information matrix is inverse of covariance
         }
 
     }
 
+    /**
+     * @brief 调用midPointIntegration, 中值积分, 更新Jacobian和cov
+     * 
+     * @param _dt 
+     * @param _acc_1 
+     * @param _gyr_1 
+     */
     void propagate(double _dt, const Eigen::Vector3d &_acc_1, const Eigen::Vector3d &_gyr_1)
     {
         dt = _dt;
