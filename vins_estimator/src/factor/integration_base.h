@@ -104,7 +104,7 @@ class IntegrationBase
                             Eigen::Vector3d &result_linearized_ba, Eigen::Vector3d &result_linearized_bg, bool update_jacobian)
     {
         //ROS_INFO("midpoint integration");
-        // 首先中值积分更新状态量,针对\alpha\beta\gama,没有预积分内容，不要想复杂了
+        // 首先中值积分更新状态量,针对\alpha\beta\gama,这一小块没有预积分内容，不要想复杂了
         Vector3d un_acc_0 = delta_q * (_acc_0 - linearized_ba);    // delta_q: 第k帧图像到第i帧imu的旋转矩阵. un_acc_0相对与初始帧的imu旋转
         Vector3d un_gyr = 0.5 * (_gyr_0 + _gyr_1) - linearized_bg; //中值积分
         result_delta_q = delta_q * Quaterniond(1, un_gyr(0) * _dt / 2, un_gyr(1) * _dt / 2, un_gyr(2) * _dt / 2);
@@ -132,37 +132,37 @@ class IntegrationBase
                 a_1_x(2), 0, -a_1_x(0),
                 -a_1_x(1), a_1_x(0), 0;
 
-            MatrixXd F = MatrixXd::Zero(15, 15);
-            F.block<3, 3>(0, 0) = Matrix3d::Identity();
+            MatrixXd F = MatrixXd::Zero(15, 15); //F是状态转移矩阵(预测矩阵),是个15*15的矩阵
+            F.block<3, 3>(0, 0) = Matrix3d::Identity(); //[0, 0]~[2, 2] f_00
             F.block<3, 3>(0, 3) = -0.25 * delta_q.toRotationMatrix() * R_a_0_x * _dt * _dt + 
-                                  -0.25 * result_delta_q.toRotationMatrix() * R_a_1_x * (Matrix3d::Identity() - R_w_x * _dt) * _dt * _dt;
-            F.block<3, 3>(0, 6) = MatrixXd::Identity(3,3) * _dt;
-            F.block<3, 3>(0, 9) = -0.25 * (delta_q.toRotationMatrix() + result_delta_q.toRotationMatrix()) * _dt * _dt;
-            F.block<3, 3>(0, 12) = -0.25 * result_delta_q.toRotationMatrix() * R_a_1_x * _dt * _dt * -_dt;
-            F.block<3, 3>(3, 3) = Matrix3d::Identity() - R_w_x * _dt;
-            F.block<3, 3>(3, 12) = -1.0 * MatrixXd::Identity(3,3) * _dt;
+                                  -0.25 * result_delta_q.toRotationMatrix() * R_a_1_x * (Matrix3d::Identity() - R_w_x * _dt) * _dt * _dt; //[0, 3]~[2, 5] f_01
+            F.block<3, 3>(0, 6) = MatrixXd::Identity(3,3) * _dt; //[0, 6]~[2, 8] f_02
+            F.block<3, 3>(0, 9) = -0.25 * (delta_q.toRotationMatrix() + result_delta_q.toRotationMatrix()) * _dt * _dt; //[0, 9]~[2, 11] f_03 
+            F.block<3, 3>(0, 12) = -0.25 * result_delta_q.toRotationMatrix() * R_a_1_x * _dt * _dt * -_dt; //[0, 12]~[2, 14] f_04
+            F.block<3, 3>(3, 3) = Matrix3d::Identity() - R_w_x * _dt; //[3, 3]~[5, 5] f_11
+            F.block<3, 3>(3, 12) = -1.0 * MatrixXd::Identity(3,3) * _dt; //[3, 12]~[5, 14] f_14
             F.block<3, 3>(6, 3) = -0.5 * delta_q.toRotationMatrix() * R_a_0_x * _dt + 
-                                  -0.5 * result_delta_q.toRotationMatrix() * R_a_1_x * (Matrix3d::Identity() - R_w_x * _dt) * _dt;
-            F.block<3, 3>(6, 6) = Matrix3d::Identity();
-            F.block<3, 3>(6, 9) = -0.5 * (delta_q.toRotationMatrix() + result_delta_q.toRotationMatrix()) * _dt;
-            F.block<3, 3>(6, 12) = -0.5 * result_delta_q.toRotationMatrix() * R_a_1_x * _dt * -_dt;
-            F.block<3, 3>(9, 9) = Matrix3d::Identity();
-            F.block<3, 3>(12, 12) = Matrix3d::Identity();
+                                  -0.5 * result_delta_q.toRotationMatrix() * R_a_1_x * (Matrix3d::Identity() - R_w_x * _dt) * _dt; //[6, 3]~[8, 5] f_21
+            F.block<3, 3>(6, 6) = Matrix3d::Identity(); //[6, 6]~[8, 8] f_22
+            F.block<3, 3>(6, 9) = -0.5 * (delta_q.toRotationMatrix() + result_delta_q.toRotationMatrix()) * _dt; //[6, 9]~[8, 11] f_23
+            F.block<3, 3>(6, 12) = -0.5 * result_delta_q.toRotationMatrix() * R_a_1_x * _dt * -_dt; //[6, 12]~[8, 14] f_24
+            F.block<3, 3>(9, 9) = Matrix3d::Identity(); //[9, 9]~[11, 11] f_33
+            F.block<3, 3>(12, 12) = Matrix3d::Identity(); // [12, 12]~[14, 14] f_44
             //cout<<"A"<<endl<<A<<endl;
 
-            MatrixXd V = MatrixXd::Zero(15,18);
-            V.block<3, 3>(0, 0) =  0.25 * delta_q.toRotationMatrix() * _dt * _dt;
-            V.block<3, 3>(0, 3) =  0.25 * -result_delta_q.toRotationMatrix() * R_a_1_x  * _dt * _dt * 0.5 * _dt;
-            V.block<3, 3>(0, 6) =  0.25 * result_delta_q.toRotationMatrix() * _dt * _dt;
-            V.block<3, 3>(0, 9) =  V.block<3, 3>(0, 3);
-            V.block<3, 3>(3, 3) =  0.5 * MatrixXd::Identity(3,3) * _dt;
-            V.block<3, 3>(3, 9) =  0.5 * MatrixXd::Identity(3,3) * _dt;
-            V.block<3, 3>(6, 0) =  0.5 * delta_q.toRotationMatrix() * _dt;
-            V.block<3, 3>(6, 3) =  0.5 * -result_delta_q.toRotationMatrix() * R_a_1_x  * _dt * 0.5 * _dt;
-            V.block<3, 3>(6, 6) =  0.5 * result_delta_q.toRotationMatrix() * _dt;
-            V.block<3, 3>(6, 9) =  V.block<3, 3>(6, 3);
-            V.block<3, 3>(9, 12) = MatrixXd::Identity(3,3) * _dt;
-            V.block<3, 3>(12, 15) = MatrixXd::Identity(3,3) * _dt;
+            MatrixXd V = MatrixXd::Zero(15,18); //V是噪声控制矩阵, 是15*18的矩阵, 分别是k, k+1时刻的加速度计和角速度计的噪声和恒定的bias
+            V.block<3, 3>(0, 0) =  0.25 * delta_q.toRotationMatrix() * _dt * _dt; //[0, 0]~[2, 2] v_00
+            V.block<3, 3>(0, 3) =  0.25 * -result_delta_q.toRotationMatrix() * R_a_1_x  * _dt * _dt * 0.5 * _dt; //[0, 3]~[2, 5] v_01
+            V.block<3, 3>(0, 6) =  0.25 * result_delta_q.toRotationMatrix() * _dt * _dt; //[0, 6]~[2, 8] v_02
+            V.block<3, 3>(0, 9) =  V.block<3, 3>(0, 3); //[0, 9]~[2, 11] v_03
+            V.block<3, 3>(3, 3) =  0.5 * MatrixXd::Identity(3,3) * _dt; //[3, 3]~[5, 5] v_11
+            V.block<3, 3>(3, 9) =  0.5 * MatrixXd::Identity(3,3) * _dt; //[3, 9]~[5, 11] v_13
+            V.block<3, 3>(6, 0) =  0.5 * delta_q.toRotationMatrix() * _dt; //[6, 0]~[8, 2] v_20
+            V.block<3, 3>(6, 3) =  0.5 * -result_delta_q.toRotationMatrix() * R_a_1_x  * _dt * 0.5 * _dt; //[6, 3]~[8, 5] v_21
+            V.block<3, 3>(6, 6) =  0.5 * result_delta_q.toRotationMatrix() * _dt; //[6, 6]~[8, 8] v_22
+            V.block<3, 3>(6, 9) =  V.block<3, 3>(6, 3); //[6, 9]~[8, 11] v_23
+            V.block<3, 3>(9, 12) = MatrixXd::Identity(3,3) * _dt; //[9, 12]~[11, 14] v_34
+            V.block<3, 3>(12, 15) = MatrixXd::Identity(3,3) * _dt; //[12, 15]~[14, 17] v_45
 
             //step_jacobian = F;
             //step_V = V;
@@ -182,11 +182,11 @@ class IntegrationBase
         Vector3d result_delta_v;
         Vector3d result_linearized_ba;
         Vector3d result_linearized_bg;
-
+        // 预积分主要功能函数
         midPointIntegration(_dt, acc_0, gyr_0, _acc_1, _gyr_1, delta_p, delta_q, delta_v, //0: k时刻的值, 1: k+1时刻的值
                             linearized_ba, linearized_bg, //零偏,积分时认为不变
-                            result_delta_p, result_delta_q, result_delta_v,
-                            result_linearized_ba, result_linearized_bg, 1); //预积分主要功能函数
+                            result_delta_p, result_delta_q, result_delta_v, //输出 p,q,v
+                            result_linearized_ba, result_linearized_bg, 1); //零偏,积分时认为不变
 
         //checkJacobian(_dt, acc_0, gyr_0, acc_1, gyr_1, delta_p, delta_q, delta_v,
         //                    linearized_ba, linearized_bg);
