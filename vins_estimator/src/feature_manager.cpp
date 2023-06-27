@@ -38,7 +38,7 @@ int FeatureManager::getFeatureCount()
 
         it.used_num = it.feature_per_frame.size();
 
-        if (it.used_num >= 2 && it.start_frame < WINDOW_SIZE - 2)
+        if (it.used_num >= 2 && it.start_frame < WINDOW_SIZE - 2) //被两帧看到
         {
             cnt++;
         }
@@ -232,7 +232,7 @@ void FeatureManager::clearDepth(const VectorXd &x)
  */
 VectorXd FeatureManager::getDepthVector()
 {
-    VectorXd dep_vec(getFeatureCount());
+    VectorXd dep_vec(getFeatureCount());//得到有效地图点数目
     int feature_index = -1;
     for (auto &it_per_id : feature)
     {
@@ -261,7 +261,7 @@ void FeatureManager::triangulate(Vector3d Ps[], Vector3d tic[], Matrix3d ric[])
     for (auto &it_per_id : feature)
     {
         it_per_id.used_num = it_per_id.feature_per_frame.size();
-        if (!(it_per_id.used_num >= 2 && it_per_id.start_frame < WINDOW_SIZE - 2))
+        if (!(it_per_id.used_num >= 2 && it_per_id.start_frame < WINDOW_SIZE - 2))//是否为被2帧看到的特征点, 这样才有用
             continue;
 
         if (it_per_id.estimated_depth > 0)  // 代表已经三角化过了
@@ -275,7 +275,7 @@ void FeatureManager::triangulate(Vector3d Ps[], Vector3d tic[], Matrix3d ric[])
         Eigen::Matrix<double, 3, 4> P0;
         // Twi -> Twc,第一个观察到这个特征点的KF的位姿
         Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
-        Eigen::Matrix3d R0 = Rs[imu_i] * ric[0];
+        Eigen::Matrix3d R0 = Rs[imu_i] * ric[0];  // Twi -> Twc
         P0.leftCols<3>() = Eigen::Matrix3d::Identity();
         P0.rightCols<1>() = Eigen::Vector3d::Zero();
         // 遍历所有看到这个特征点的KF

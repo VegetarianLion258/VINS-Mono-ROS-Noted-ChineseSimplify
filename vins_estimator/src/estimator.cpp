@@ -429,11 +429,12 @@ bool Estimator::initialStructure()
 
 }
 
+//正式视觉IMU对齐: 
 bool Estimator::visualInitialAlign()
 {
     TicToc t_g;
     VectorXd x;
-    //solve scale求解尺度
+    //对齐核心函数: 陀螺仪零偏, 各帧速度, 枢纽帧重力方向对齐, 视觉尺度
     bool result = VisualIMUAlignment(all_image_frame, Bgs, g, x);
     if(!result)
     {
@@ -445,7 +446,7 @@ bool Estimator::visualInitialAlign()
     // 首先把对齐后KF的位姿附给滑窗中的值，Rwi twc
     for (int i = 0; i <= frame_count; i++)
     {
-        Matrix3d Ri = all_image_frame[Headers[i].stamp.toSec()].R;
+        Matrix3d Ri = all_image_frame[Headers[i].stamp.toSec()].R; //所有帧:关键帧与非关键帧
         Vector3d Pi = all_image_frame[Headers[i].stamp.toSec()].T;
         Ps[i] = Pi;
         Rs[i] = Ri;
@@ -455,15 +456,15 @@ bool Estimator::visualInitialAlign()
     VectorXd dep = f_manager.getDepthVector();  // 根据有效特征点数初始化这个动态向量
     for (int i = 0; i < dep.size(); i++)
         dep[i] = -1;    // 深度预设都是-1
-    f_manager.clearDepth(dep);  // 特征管理器把所有的特征点逆深度也设置为-1
+    f_manager.clearDepth(dep);  // 特征管理器把所有的特征点逆深度也设置为-1(前面已经做了)
 
     //triangulat on cam pose , no tic
     Vector3d TIC_TMP[NUM_OF_CAM];
     for(int i = 0; i < NUM_OF_CAM; i++)
-        TIC_TMP[i].setZero();
-    ric[0] = RIC[0];
-    f_manager.setRic(ric);
-    // 多约束三角化所有的特征点，注意，仍带是尺度模糊的
+        TIC_TMP[i].setZero();//平移外参设为0
+    ric[0] = RIC[0];//旋转外参设置
+    f_manager.setRic(ric);//旋转外参赋值给特征点管理器
+    // 多约束三角化所有的特征点，注意，仍是尺度模糊的
     f_manager.triangulate(Ps, &(TIC_TMP[0]), &(RIC[0]));
 
     double s = (x.tail<1>())(0);
