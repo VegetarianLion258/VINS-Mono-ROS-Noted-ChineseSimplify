@@ -151,7 +151,7 @@ bool LinearAlignment(map<double, ImageFrame> &all_image_frame, Vector3d &g, Vect
 {
     // 这一部分内容对照论文进行理解
     int all_frame_count = all_image_frame.size();
-    int n_state = all_frame_count * 3 + 3 + 1; // 3N+3+1
+    int n_state = all_frame_count * 3 + 3 + 1; // 3N+3+1 速度+重力+尺度因子
 
     MatrixXd A{n_state, n_state};
     A.setZero();
@@ -203,7 +203,7 @@ bool LinearAlignment(map<double, ImageFrame> &all_image_frame, Vector3d &g, Vect
     // 增强数值稳定性
     A = A * 1000.0;
     b = b * 1000.0;
-    x = A.ldlt().solve(b);
+    x = A.ldlt().solve(b); //ldlt求解
     double s = x(n_state - 1) / 100.0;
     ROS_DEBUG("estimated scale: %f", s);
     g = x.segment<3>(n_state - 4);
@@ -213,10 +213,10 @@ bool LinearAlignment(map<double, ImageFrame> &all_image_frame, Vector3d &g, Vect
     {
         return false;
     }
-    // 重力修复
+    // 重力修复(规定重力大小,优化重力方向)
     RefineGravity(all_image_frame, g, x);
     // 得到真实尺度
-    s = (x.tail<1>())(0) / 100.0;
+    s = (x.tail<1>())(0) / 100.0; //tail: 取出最后一个
     (x.tail<1>())(0) = s;
     ROS_DEBUG_STREAM(" refine     " << g.norm() << " " << g.transpose());
     if(s < 0.0 )
@@ -238,6 +238,7 @@ bool LinearAlignment(map<double, ImageFrame> &all_image_frame, Vector3d &g, Vect
 
 bool VisualIMUAlignment(map<double, ImageFrame> &all_image_frame, Vector3d* Bgs, Vector3d &g, VectorXd &x)
 {
+    // 求解陀螺仪零偏，同时利用求出来的零偏重新进行预积分
     solveGyroscopeBias(all_image_frame, Bgs);
 
     if(LinearAlignment(all_image_frame, g, x))

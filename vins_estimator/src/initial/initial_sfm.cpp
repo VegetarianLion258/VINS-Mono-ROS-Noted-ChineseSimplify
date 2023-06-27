@@ -310,7 +310,7 @@ bool GlobalSFM::construct(int frame_num, Quaterniond* q, Vector3d* T, int l,
 		problem.AddParameterBlock(c_translation[i], 3);
 		// 由于是单目视觉slam，有七个自由度不可观，因此，fix一些参数块避免在零空间漂移
 		// fix设置的世界坐标系第l帧的位姿，同时fix最后一帧的位移用来fix尺度, fix枢纽帧
-		if (i == l)
+		if (i == l) //l为枢纽帧
 		{
 			problem.SetParameterBlockConstant(c_rotation[i]);
 		}

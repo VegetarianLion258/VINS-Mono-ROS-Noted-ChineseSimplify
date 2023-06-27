@@ -154,7 +154,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
     Headers[frame_count] = header;
 
     // all_image_frame用来做初始化相关操作，他保留滑窗起始到当前的所有帧
-    // 有一些帧会因为不是KF，被MARGIN_SECOND_NEW，但是及时较新的帧被margin，他也会保留在这个容器中，因为初始化要求使用所有的帧，而非只要KF
+    // 有一些帧会因为不是KF，被MARGIN_SECOND_NEW，但是即使较新的帧被margin，他也会保留在这个容器中，因为初始化要求使用所有的帧，而非只要KF
     ImageFrame imageframe(image, header.stamp.toSec());
     imageframe.pre_integration = tmp_pre_integration; //预积分的值
     // 这里就是简单的把图像和预积分绑定在一起，这里预积分就是两帧之间的，滑窗中实际上是两个KF之间的
@@ -164,14 +164,14 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
 
     // 没有外参初值
     // Step 2： 外参初始化
-    if(ESTIMATE_EXTRINSIC == 2)
+    if(ESTIMATE_EXTRINSIC == 2) //没有任何初始值
     {
         ROS_INFO("calibrating extrinsic param, rotation movement is needed");
         if (frame_count != 0)
         {
             // 这里标定imu和相机的旋转外参的初值
             // 因为预积分是相邻帧的约束，因为这里得到的图像关联也是相邻的
-            // 得到相关两帧之间特征点的对应坐标
+            // 得到相关两帧之间特征点的对应相机坐标系坐标
             vector<pair<Vector3d, Vector3d>> corres = f_manager.getCorresponding(frame_count - 1, frame_count);
             Matrix3d calib_ric;
             if (initial_ex_rotation.CalibrationExRotation(corres, pre_integrations[frame_count]->delta_q, calib_ric))
@@ -193,9 +193,9 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
             bool result = false;
             // 要有可信的外参值，同时距离上次初始化不成功至少相邻0.1s
             // Step 3： VIO初始化
-            if( ESTIMATE_EXTRINSIC != 2 && (header.stamp.toSec() - initial_timestamp) > 0.1)//多等一会
+            if( ESTIMATE_EXTRINSIC != 2 && (header.stamp.toSec() - initial_timestamp) > 0.1)//有初始外参,多等一会新帧,要不还会失败
             {
-               result = initialStructure(); //初始化成功
+               result = initialStructure(); //单目视觉sfm
                initial_timestamp = header.stamp.toSec();
             }
             if(result)
@@ -255,7 +255,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
 }
 
 /**
- * @brief VIO初始化，将滑窗中的P V Q恢复到第0帧并且和重力对齐
+ * @brief VIO初始化，将滑窗中的P V Q恢复到第0帧并且和重力对齐,滑窗满了才运行
  * 
  * @return true 
  * @return false 
@@ -263,8 +263,9 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
 bool Estimator::initialStructure()
 {
     TicToc t_sfm;
-    // Step 1: check imu observibility 检查imu的能观性
-    {
+    // Step 1: check imu observibility 检查imu的能观性,确定可以得到足够的激励
+    {   
+        //下面确定激励大小是通过先求出每图像帧imu平均值,在用每图像帧的imu减去平均值再求方差得到
         map<double, ImageFrame>::iterator frame_it;
         Vector3d sum_g;
         // 从第二帧开始检查imu
@@ -290,7 +291,7 @@ bool Estimator::initialStructure()
         var = sqrt(var / ((int)all_image_frame.size() - 1));
         //ROS_WARN("IMU variation %f!", var);
         // 实际上检查结果并没有用
-        if(var < 0.25)
+        if(var < 0.25) //激励不足,运动单调
         {
             ROS_INFO("IMU excitation not enouth!");
             //return false;
@@ -321,7 +322,7 @@ bool Estimator::initialStructure()
     Matrix3d relative_R;
     Vector3d relative_T;
     int l;
-    if (!relativePose(relative_R, relative_T, l)) //找到枢纽帧
+    if (!relativePose(relative_R, relative_T, l)) //是否找到枢纽帧?
     {
         ROS_INFO("Not enough features or parallax; Move device around");
         return false;
@@ -432,7 +433,7 @@ bool Estimator::visualInitialAlign()
 {
     TicToc t_g;
     VectorXd x;
-    //solve scale
+    //solve scale求解尺度
     bool result = VisualIMUAlignment(all_image_frame, Bgs, g, x);
     if(!result)
     {
@@ -527,12 +528,12 @@ bool Estimator::visualInitialAlign()
 bool Estimator::relativePose(Matrix3d &relative_R, Vector3d &relative_T, int &l)
 {
     // find previous frame which contians enough correspondance and parallex with newest frame
-    // 优先从最前面开始
+    // 优先从最前面开始(找到与最后一帧最远的枢纽帧)
     for (int i = 0; i < WINDOW_SIZE; i++)
     {
         vector<pair<Vector3d, Vector3d>> corres;
-        corres = f_manager.getCorresponding(i, WINDOW_SIZE);
-        // 要求共视的特征点足够多
+        corres = f_manager.getCorresponding(i, WINDOW_SIZE); //得到匹配对
+        // 要求共视的特征点足够多>20个
         if (corres.size() > 20)
         {
             double sum_parallax = 0;
@@ -547,7 +548,7 @@ bool Estimator::relativePose(Matrix3d &relative_R, Vector3d &relative_T, int &l)
             }
             // 计算每个特征点的平均视差
             average_parallax = 1.0 * sum_parallax / int(corres.size());
-            // 有足够的视差在通过本质矩阵恢复第i帧和最后一帧之间的 R t T_i_last, 30是虚拟相机像素差
+            // 有足够的视差在通过本质矩阵恢复第i帧和最后一帧之间的 R t T_i_last, 30是虚拟相机像素差(虚拟焦距)
             if(average_parallax * 460 > 30 && m_estimator.solveRelativeRT(corres, relative_R, relative_T))
             {
                 l = i;

@@ -71,7 +71,7 @@ class IntegrationBase
         jacobian.setIdentity();
         covariance.setZero();
         // 用之前存下来的imu值重新预积分
-        for (int i = 0; i < static_cast<int>(dt_buf.size()); i++)
+        for (int i = 0; i < static_cast<int>(dt_buf.size()); i++) //TODO::打印dt_buff.size()
             propagate(dt_buf[i], acc_buf[i], gyr_buf[i]);
     }
 
@@ -189,7 +189,7 @@ class IntegrationBase
         Vector3d result_delta_v;
         Vector3d result_linearized_ba;
         Vector3d result_linearized_bg;
-        // 预积分主要功能函数
+        // 预积分主要功能函数, 中值积分与计算J与cov
         midPointIntegration(_dt, acc_0, gyr_0, _acc_1, _gyr_1, delta_p, delta_q, delta_v, //0: k时刻的值, 1: k+1时刻的值
                             linearized_ba, linearized_bg, //零偏,积分时认为不变
                             result_delta_p, result_delta_q, result_delta_v, //输出 p,q,v

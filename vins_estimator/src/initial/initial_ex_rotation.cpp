@@ -9,7 +9,7 @@ InitialEXRotation::InitialEXRotation(){
 }
 
 /**
- * @brief // 标定imu和相机之间的旋转外参，通过imu和图像计算的旋转使用手眼标定计算获
+ * @brief // 标定imu和相机之间的旋转外参，通过imu和图像计算的旋转使用手眼标定计算获(SVD分解)
  * 
  * @param[in] corres 
  * @param[in] delta_q_imu 
@@ -79,6 +79,7 @@ bool InitialEXRotation::CalibrationExRotation(vector<pair<Vector3d, Vector3d>> c
         return false;
 }
 
+//基于本质矩阵分解,把相机坐标系下的对应3D点求解出R12
 Matrix3d InitialEXRotation::solveRelativeR(const vector<pair<Vector3d, Vector3d>> &corres)
 {
     if (corres.size() >= 9)//匹配点要多
