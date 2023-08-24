@@ -10,7 +10,7 @@ bool inBorder(const cv::Point2f &pt)
     return BORDER_SIZE <= img_x && img_x < COL - BORDER_SIZE && BORDER_SIZE <= img_y && img_y < ROW - BORDER_SIZE;
 }
 
-// 根据状态位，进行“瘦身”,只保留有用的, (双指针赋值)
+// 根据状态位，进行“瘦身”,只保留跟踪成功的, (双指针赋值)
 void reduceVector(vector<cv::Point2f> &v, vector<uchar> status)
 {
     int j = 0;
@@ -103,7 +103,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
     {
         // 图像太暗或者太亮，提特征点比较难，所以均衡化一下
         // ! opencv 函数看一下
-        cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8)); //CLAHE特征点提取
+        cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8)); //CLAHE直方图均衡化
         TicToc t_c;
         clahe->apply(_img, img);
         ROS_DEBUG("CLAHE costs: %fms", t_c.toc());
@@ -130,6 +130,18 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
         vector<float> err;
         // 调用opencv函数进行光流追踪
         // Step 1 通过opencv光流追踪给的状态位剔除outlier
+        /*
+        cur_img: 当前帧的图像，通常是灰度图像。
+        forw_img: 下一帧的图像，与cur_img相对应的下一帧图像，也通常是灰度图像。
+        cur_pts: 当前帧中的特征点，通常是一组二维点（例如，std::vector<cv::Point2f>）。
+        forw_pts:
+        预测的下一帧中的特征点位置，通常是一个和cur_pts同样大小的容器，作为输出。
+        status:
+        一个输出参数，用于指示每个特征点是否在下一帧中被成功跟踪。通常是一个std::vector<uchar>，其中每个元素表示对应特征点的跟踪状态。
+        err: 一个输出参数，用于指示每个特征点的跟踪误差。
+        cv::Size(21, 21): 金字塔的窗口大小，用于跟踪特征点。
+        3: 金字塔的层数，用于多分辨率跟踪。
+        */
         cv::calcOpticalFlowPyrLK(cur_img, forw_img, cur_pts, forw_pts, status, err, cv::Size(21, 21), 3);
 
         for (int i = 0; i < int(forw_pts.size()); i++)
@@ -150,7 +162,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
 
     if (PUB_THIS_FRAME)
     {
-        // Step 3 通过对级约束来剔除outlier
+        // Step 3 通过对级约束基础矩阵来把错误跟踪的点剔除
         rejectWithF();
         ROS_DEBUG("set mask begins");
         TicToc t_m;
@@ -221,6 +233,25 @@ void FeatureTracker::rejectWithF()
 
         vector<uchar> status;
         // opencv接口计算本质矩阵，某种意义也是一种对级约束的outlier剔除
+        /*
+        un_cur_pts:
+        当前帧中的未校正（undistorted）特征点，通常是一组二维点（例如，std::vector<cv::Point2f>）。
+
+        un_forw_pts:
+        下一帧中的未校正特征点，与un_cur_pts对应的下一帧中的点，通常也是一个和un_cur_pts同样大小的容器。
+
+        cv::FM_RANSAC:
+        这是用于估计基础矩阵的方法之一，称为RANSAC算法。RANSAC是一种随机抽样一致性算法，用于从具有异常值的数据中估计模型参数。
+
+        F_THRESHOLD:
+        RANSAC算法中的阈值，用于决定哪些点被视为内点。超过这个阈值的点被认为是外点，不用于估计基础矩阵。
+
+        0.99:
+        这是RANSAC算法的置信度，表示期望的内点比例。在这种情况下，期望有99%的内点。
+
+        status:
+        一个输出参数，用于指示每个点是否被用于估计基础矩阵。通常是一个std::vector<uchar>，其中每个元素表示对应点的状态（内点或外点）。
+        */
         cv::findFundamentalMat(un_cur_pts, un_forw_pts, cv::FM_RANSAC, F_THRESHOLD, 0.99, status);
         int size_a = cur_pts.size();
         reduceVector(prev_pts, status);

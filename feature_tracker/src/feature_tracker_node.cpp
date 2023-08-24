@@ -1,3 +1,14 @@
+/**
+ * @file feature_tracker_node.cpp
+ * @author your name (you@domain.com)
+ * @brief
+ * 把去畸变后的像素坐标、速度都保存起来，一起发送给后端。当然，只给后端发可以三角化的的点（被追踪数量大于1）
+ * @version 0.1
+ * @date 2023-08-24
+ *
+ * @copyright Copyright (c) 2023
+ *
+ */
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/image_encodings.h>
@@ -18,7 +29,7 @@ queue<sensor_msgs::ImageConstPtr> img_buf;
 ros::Publisher pub_img,pub_match;
 ros::Publisher pub_restart;
 
-FeatureTracker trackerData[NUM_OF_CAM];
+FeatureTracker trackerData[NUM_OF_CAM]; //光流跟踪类实例化
 double first_image_time;
 int pub_count = 1;
 bool first_image_flag = true;
