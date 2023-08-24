@@ -67,6 +67,19 @@ void FeatureTracker::setMask()
             ids.push_back(it.second.second);
             track_cnt.push_back(it.first);
             // opencv函数，把周围一个圆内全部置0,这个区域不允许别的特征点存在，避免特征点过于集中
+            /*
+            mask:
+            这是目标图像或图像区域，通常是一个单通道的灰度图像或二值图像。cv::circle函数将在这个图像上绘制圆。
+
+            it.second.first:
+            这是一个cv::Point对象，表示圆心的坐标。这里的it可能是一对迭代器，second表示第二个值，而first则表示其中的第一个值。
+
+            MIN_DIST: 这是圆的半径，表示绘制的圆的大小。
+
+            0: 这是圆的颜色，这里的0表示黑色。
+
+            -1: 这是要绘制的圆的填充类型。在这里，-1表示填充整个圆。
+            */
             cv::circle(mask, it.second.first, MIN_DIST, 0, -1);
         }
     }
@@ -166,13 +179,13 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
         rejectWithF();
         ROS_DEBUG("set mask begins");
         TicToc t_m;
-        setMask();
+        setMask(); //根据跟踪次数排序,好的点上画黑圈圈,稀疏化特征点
         ROS_DEBUG("set mask costs %fms", t_m.toc());
 
         ROS_DEBUG("detect feature begins");
         TicToc t_t;
         int n_max_cnt = MAX_CNT - static_cast<int>(forw_pts.size());
-        if (n_max_cnt > 0)
+        if (n_max_cnt > 0) //经过层层筛选后大于一定数量才行
         {
             if(mask.empty())
                 cout << "mask is empty " << endl;
@@ -181,6 +194,22 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
             if (mask.size() != forw_img.size())
                 cout << "wrong size " << endl;
             // 只有发布才可以提取更多特征点，同时避免提的点进mask(圆圈内)
+            /*
+            forw_img: 输入图像，通常是灰度图像。
+
+            n_pts: 检测到的特征点数量。这是一个输出参数，表示在图像中检测到的特征点的数量。
+
+            MAX_CNT - forw_pts.size():
+            这是最大特征点数量减去已有特征点数量的结果。意味着在本次调用中要检测的新特征点的数量。
+
+            0.01: 表示角点响应函数的阈值。只有响应函数大于这个阈值的像素被认为是特征点。
+
+            MIN_DIST:
+            特征点之间的最小距离。如果两个特征点之间的距离小于这个值，其中一个特征点将被丢弃。
+
+            mask:
+            掩码图像，指示算法在哪些区域中寻找特征点。如果指定了掩码，只有在掩码为非零的像素位置上才会检测特征点。这通常用于限制特征点检测区域。
+            */
             cv::goodFeaturesToTrack(forw_img, n_pts, MAX_CNT - forw_pts.size(), 0.01, MIN_DIST, mask);
         }
         else
