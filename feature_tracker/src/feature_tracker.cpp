@@ -48,7 +48,7 @@ void FeatureTracker::setMask()
 
     for (unsigned int i = 0; i < forw_pts.size(); i++)
         cnt_pts_id.push_back(make_pair(track_cnt[i], make_pair(forw_pts[i], ids[i])));
-    // 利用光流特点，追踪多的稳定性好，排前面
+    // 利用光流特点，追踪多的稳定性好，排前面, track_cnt要多才好
     sort(cnt_pts_id.begin(), cnt_pts_id.end(), [](const pair<int, pair<cv::Point2f, int>> &a, const pair<int, pair<cv::Point2f, int>> &b)
          {
             return a.first > b.first;
