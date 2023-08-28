@@ -104,7 +104,8 @@ class IntegrationBase
                             Eigen::Vector3d &result_linearized_ba, Eigen::Vector3d &result_linearized_bg, bool update_jacobian)
     {
         //ROS_INFO("midpoint integration");
-        // 首先中值积分更新状态量,针对\alpha\beta\gama,这一小块没有预积分内容，不要想复杂了
+        // 首先中值积分更新状态量,针对\alpha\beta\gama,这一小块没有预积分内容，不要想复杂了, 
+        // NOTE: 对应论文式子7
         Vector3d un_acc_0 = delta_q * (_acc_0 - linearized_ba);    // delta_q: 第k帧图像到第i帧imu的旋转矩阵. un_acc_0相对与初始帧的imu旋转
         Vector3d un_gyr = 0.5 * (_gyr_0 + _gyr_1) - linearized_bg; //中值积分
         result_delta_q = delta_q * Quaterniond(1, un_gyr(0) * _dt / 2, un_gyr(1) * _dt / 2, un_gyr(2) * _dt / 2);
@@ -131,7 +132,7 @@ class IntegrationBase
             R_a_1_x<<0, -a_1_x(2), a_1_x(1),
                 a_1_x(2), 0, -a_1_x(0),
                 -a_1_x(1), a_1_x(0), 0;
-
+            //NOTE: 式子11
             MatrixXd F = MatrixXd::Zero(15, 15); //F是状态转移矩阵(预测矩阵),是个15*15的矩阵
             F.block<3, 3>(0, 0) = Matrix3d::Identity(); //[0, 0]~[2, 2] f_00
             F.block<3, 3>(0, 3) = -0.25 * delta_q.toRotationMatrix() * R_a_0_x * _dt * _dt + 

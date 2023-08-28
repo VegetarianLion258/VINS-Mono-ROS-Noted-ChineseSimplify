@@ -19,13 +19,13 @@ InitialEXRotation::InitialEXRotation(){
  */
 bool InitialEXRotation::CalibrationExRotation(vector<pair<Vector3d, Vector3d>> corres, Quaterniond delta_q_imu, Matrix3d &calib_ric_result)
 {
-    frame_count++;
+    frame_count++; //初值为0
     // 根据特征关联求解两个连续帧相机的旋转R12
-    Rc.push_back(solveRelativeR(corres));
-    // 根据IMU得到旋转R12
+    Rc.push_back(solveRelativeR(corres)); //NOTE:是一直push_back的
+    // 根据IMU预积分得到旋转R12
     Rimu.push_back(delta_q_imu.toRotationMatrix());
     // 通过外参把imu的旋转转移到相机坐标系
-    Rc_g.push_back(ric.inverse() * delta_q_imu * ric);  // ric是上一次求解得到的外参
+    Rc_g.push_back(ric.inverse() * delta_q_imu * ric);  // ric是上一次求解得到的外参,初值是I
 
     Eigen::MatrixXd A(frame_count * 4, 4);
     A.setZero();
@@ -70,6 +70,7 @@ bool InitialEXRotation::CalibrationExRotation(vector<pair<Vector3d, Vector3d>> c
     Vector3d ric_cov;
     ric_cov = svd.singularValues().tail<3>();
     // 倒数第二个奇异值，因为旋转是3个自由度，因此检查一下倒数第二(第三小)小的奇异值是否足够大，通常需要足够的运动激励才能保证得到没有奇异的解
+    //设备不动不会返回false
     if (frame_count >= WINDOW_SIZE && ric_cov(1) > 0.25)
     {
         calib_ric_result = ric;
@@ -79,7 +80,7 @@ bool InitialEXRotation::CalibrationExRotation(vector<pair<Vector3d, Vector3d>> c
         return false;
 }
 
-//基于本质矩阵分解,把相机坐标系下的对应3D点求解出R12
+//基于本质矩阵分解,把相机坐标系下的对应3D点求解出R12, 方法同14讲2D-2D
 Matrix3d InitialEXRotation::solveRelativeR(const vector<pair<Vector3d, Vector3d>> &corres)
 {
     if (corres.size() >= 9)//匹配点要多

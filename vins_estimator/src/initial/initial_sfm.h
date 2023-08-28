@@ -12,7 +12,7 @@ using namespace Eigen;
 using namespace std;
 
 
-
+// SfM的特征点属性
 struct SFMFeature
 {
     bool state;

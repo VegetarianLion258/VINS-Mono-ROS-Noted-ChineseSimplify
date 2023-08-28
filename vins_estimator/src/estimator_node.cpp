@@ -12,8 +12,10 @@
 #include "parameters.h"
 #include "utility/visualization.h"
 
+#include "glog/logging.h"
 
-Estimator estimator;
+
+Estimator estimator; //程序启动时启动估计器
 
 std::condition_variable con; //线程间条件通知
 double current_time = -1;
@@ -148,7 +150,7 @@ std::vector<std::pair<std::vector<sensor_msgs::ImuConstPtr>, sensor_msgs::PointC
             IMUs.emplace_back(imu_buf.front()); 
             imu_buf.pop(); //imu_buf是queue, 从头pop
         }
-        // 保留图像时间戳后一个imu数据，但不会从buffer中扔掉,差值得到中间IMU值
+        // 保留图像时间戳后一个imu数据，但不会从buffer中扔掉
         // imu    ***** *
         // image       *
         //再得到图像帧后面的第一个imu数据,不pop
@@ -260,11 +262,14 @@ void process()
 {
     while (true)    // 这个线程是会一直循环下去
     {
-        //vec<vec:IMU, pointcloud>
+        //vec<vec:IMU, pointcloud> 点云和imu打包
         std::vector<std::pair<std::vector<sensor_msgs::ImuConstPtr>, sensor_msgs::PointCloudConstPtr>> measurements;
         std::unique_lock<std::mutex> lk(m_buf);
         // con.wait(knock, condition==true)
-        con.wait(lk, [&]
+        // 在特定条件满足之前阻塞当前线程
+        // 等待过程中，std::unique_lock lk
+        // 会被自动释放，允许其他线程对共享资源进行修改。这是防止死锁的一种方法。
+        con.wait(lk, [&] 
                  {
                     return (measurements = getMeasurements()).size() != 0; //获得时间对齐后的IMU和视觉跟踪数据:<rosImu, rosPointCloud>
                  });
@@ -280,7 +285,7 @@ void process()
             {
                 double t = imu_msg->header.stamp.toSec();
                 double img_t = img_msg->header.stamp.toSec() + estimator.td;
-                if (t <= img_t) //判断是否为需要差值(晚于图像)的imu数据
+                if (t <= img_t) //时间修正后imu时间戳是否在图像时间戳前
                 { 
                     if (current_time < 0)
                         current_time = t;
@@ -351,7 +356,7 @@ void process()
 
             TicToc t_s;
             // 特征点id->特征点信息
-            map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> image;
+            map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> image; //<feature_id, <camera_id, 点云信息7维>>
             for (unsigned int i = 0; i < img_msg->points.size(); i++)
             {
                 int v = img_msg->channels[0].values[i] + 0.5;
@@ -404,12 +409,17 @@ int main(int argc, char **argv)
     ros::NodeHandle n("~");
     ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
     readParameters(n);
-    estimator.setParameter(); //读取的参数设置进程序
+    estimator.setParameter(); //读取的参数设置进估计器
 #ifdef EIGEN_DONT_PARALLELIZE
     ROS_DEBUG("EIGEN_DONT_PARALLELIZE");
 #endif
     ROS_WARN("waiting for image and imu...");
-
+    google::InitGoogleLogging("Vins_mono notice");
+    std::string log_file_path("/home/tanhaozhang/glog_dir");
+    FLAGS_log_dir = log_file_path;
+    // FLAGS_alsologtostderr = true;
+    // FLAGS_stderrthreshold = 1;
+    LOG(ERROR) << "Log saving path: " << log_file_path;
     // 注册一些publisher
     registerPub(n);
     // 接受imu消息

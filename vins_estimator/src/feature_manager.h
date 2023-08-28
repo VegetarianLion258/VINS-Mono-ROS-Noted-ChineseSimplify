@@ -14,10 +14,19 @@ using namespace Eigen;
 #include <ros/assert.h>
 
 #include "parameters.h"
-
+/**
+ * @brief 维护特征点的各项属性(速度,3D位子)
+ * 
+ */
 class FeaturePerFrame
 {
   public:
+  /**
+   * @brief Construct a new Feature Per Frame object
+   * 
+   * @param _point 点的各项特征(速度等)
+   * @param td 逆深度
+   */
     FeaturePerFrame(const Eigen::Matrix<double, 7, 1> &_point, double td)
     {
         point.x() = _point(0);
@@ -41,12 +50,16 @@ class FeaturePerFrame
     double dep_gradient;
 };
 
+/**
+ * @brief 维护特征点id,第一次看到这个特征点的frame id
+ * 
+ */
 class FeaturePerId
 {
   public:
     const int feature_id;
     int start_frame;
-    vector<FeaturePerFrame> feature_per_frame;  // 该id对应的特征点在每个帧中的属性
+    vector<FeaturePerFrame> feature_per_frame;  // 该id对应的特征点在每个帧中的属性(见上)
 
     int used_num;
     bool is_outlier;

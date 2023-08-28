@@ -22,6 +22,7 @@
 #include <queue>
 #include <opencv2/core/eigen.hpp>
 
+#include <glog/logging.h>
 
 class Estimator
 {

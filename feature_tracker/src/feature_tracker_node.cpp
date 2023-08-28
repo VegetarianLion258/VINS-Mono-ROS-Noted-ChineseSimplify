@@ -2,7 +2,9 @@
  * @file feature_tracker_node.cpp
  * @author your name (you@domain.com)
  * @brief
- * 把去畸变后的像素坐标、速度都保存起来，一起发送给后端。当然，只给后端发可以三角化的的点（被追踪数量大于1）
+ * 把去畸变后的像素坐标、速度都保存起来，一起发送给后端。只发追踪数量大于1的
+ * 发布： 1.带特征点的图像 2.特征点点云 3.是否需要重启
+ * 点云： 1.归一化之后的xyz坐标，xy为去畸变之后的像素坐标，z为1 2.点云点的id 3.点云点对应特征点在图像上的uv坐标 4.点云点对应特征点在图像上的像素速度
  * @version 0.1
  * @date 2023-08-24
  *
@@ -184,7 +186,7 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
             init_pub = 1;
         }
         else
-            pub_img.publish(feature_points);    // 前端得到的信息通过这个publisher发布出去
+            pub_img.publish(feature_points);    // 前端得到的点云信息通过这个publisher发布出去
 
         // 可视化相关操作
         if (SHOW_TRACK)
@@ -200,7 +202,7 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
 
                 for (unsigned int j = 0; j < trackerData[i].cur_pts.size(); j++)
                 {
-                    double len = std::min(1.0, 1.0 * trackerData[i].track_cnt[j] / WINDOW_SIZE);
+                    double len = std::min(1.0, 1.0 * trackerData[i].track_cnt[j] / WINDOW_SIZE); //特征点跟踪次数越多越红
                     cv::circle(tmp_img, trackerData[i].cur_pts[j], 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
                     //draw speed line
                     /*

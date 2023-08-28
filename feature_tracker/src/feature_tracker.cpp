@@ -185,7 +185,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
         ROS_DEBUG("detect feature begins");
         TicToc t_t;
         int n_max_cnt = MAX_CNT - static_cast<int>(forw_pts.size());
-        if (n_max_cnt > 0) //经过层层筛选后大于一定数量才行
+        if (n_max_cnt > 0) //经过层层筛选后数量如果不够了
         {
             if(mask.empty())
                 cout << "mask is empty " << endl;
@@ -197,7 +197,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
             /*
             forw_img: 输入图像，通常是灰度图像。
 
-            n_pts: 检测到的特征点数量。这是一个输出参数，表示在图像中检测到的特征点的数量。
+            n_pts: output 检测到的特征点数量。这是一个输出参数，表示在图像中检测到的特征点的数量。
 
             MAX_CNT - forw_pts.size():
             这是最大特征点数量减去已有特征点数量的结果。意味着在本次调用中要检测的新特征点的数量。
@@ -218,7 +218,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
 
         ROS_DEBUG("add feature begins");
         TicToc t_a;
-        addPoints();
+        addPoints(); //添加通过goodFeatureToTrack得到的特征点
         ROS_DEBUG("selectFeature costs: %fms", t_a.toc());
     }
     prev_img = cur_img;
@@ -358,7 +358,7 @@ void FeatureTracker::showUndistortion(const string &name)
 }
 
 /**
- * @brief 当前帧所有点统一去畸变，同时计算特征点速度，用来后续时间戳标定
+ * @brief 当前帧所有点统一去畸变，同时计算特征点速度，用来后续时间戳标定.速度为图像像素的移动速度
  *
  */
 void FeatureTracker::undistortedPoints()
@@ -407,7 +407,7 @@ void FeatureTracker::undistortedPoints()
     }
     else
     {
-        // 第一帧的情况
+        // 第一帧的情况,速度都为0
         for (unsigned int i = 0; i < cur_pts.size(); i++)
         {
             pts_velocity.push_back(cv::Point2f(0, 0));

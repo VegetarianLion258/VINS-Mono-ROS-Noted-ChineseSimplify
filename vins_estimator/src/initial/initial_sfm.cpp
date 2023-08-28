@@ -252,7 +252,7 @@ bool GlobalSFM::construct(int frame_num, Quaterniond* q, Vector3d* T, int l,
 		//triangulate
 		triangulateTwoFrames(i, Pose[i], l, Pose[l], sfm_f);
 	}
-	// Step 4 得到了所有关键帧的位姿，遍历没有被三角化的特征点，进行三角化
+	// Step 4 得到了所有初始普通帧（共11个）的位姿，遍历没有被三角化的特征点，进行三角化
 	//5: triangulate all other points
 	for (int j = 0; j < feature_num; j++)
 	{
@@ -276,19 +276,19 @@ bool GlobalSFM::construct(int frame_num, Quaterniond* q, Vector3d* T, int l,
 		}		
 	}
 
-/*
-	for (int i = 0; i < frame_num; i++)
-	{
-		q[i] = c_Rotation[i].transpose(); 
-		cout << "solvePnP  q" << " i " << i <<"  " <<q[i].w() << "  " << q[i].vec().transpose() << endl;
-	}
-	for (int i = 0; i < frame_num; i++)
-	{
-		Vector3d t_tmp;
-		t_tmp = -1 * (q[i] * c_Translation[i]);
-		cout << "solvePnP  t" << " i " << i <<"  " << t_tmp.x() <<"  "<< t_tmp.y() <<"  "<< t_tmp.z() << endl;
-	}
-*/
+	/*
+		for (int i = 0; i < frame_num; i++)
+		{
+			q[i] = c_Rotation[i].transpose(); 
+			cout << "solvePnP  q" << " i " << i <<"  " <<q[i].w() << "  " << q[i].vec().transpose() << endl;
+		}
+		for (int i = 0; i < frame_num; i++)
+		{
+			Vector3d t_tmp;
+			t_tmp = -1 * (q[i] * c_Translation[i]);
+			cout << "solvePnP  t" << " i " << i <<"  " << t_tmp.x() <<"  "<< t_tmp.y() <<"  "<< t_tmp.z() << endl;
+		}
+	*/
 	//full BA
 	// Step 5 求出了所有的位姿和3d点之后，进行一个视觉slam的global BA
 	// 可能需要介绍一下ceres  http://ceres-solver.org/

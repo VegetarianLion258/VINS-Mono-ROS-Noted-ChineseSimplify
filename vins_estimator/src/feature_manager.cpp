@@ -66,7 +66,7 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vec
     for (auto &id_pts : image)
     {
         // 用特征点信息构造第k帧属性的对象
-        FeaturePerFrame f_per_fra(id_pts.second[0].second, td);
+        FeaturePerFrame f_per_fra(id_pts.second[0].second, td); //只用了一个相机的特征点
 
         int feature_id = id_pts.first; //取出id
         // 在已有的id中寻找是否是有相同的特征点
@@ -81,15 +81,14 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vec
             feature.push_back(FeaturePerId(feature_id, frame_count)); //创建特征点并压入特征点管理器
             feature.back().feature_per_frame.push_back(f_per_fra); //为创建的特征点压入创建的k帧属性管理器
         }
-        // 如果这是一个已有的特征点，就在对应的在特征点管理器中，新创建一个特征点id，
-        // 这里的frame_count就是该特征点在滑窗中的当前位置，作为这个特征点的起始位置“组织”下增加一个帧属性
+        // 如果这是一个已有的特征点，就在对应的在特征点管理器中，压入新特征点属性
         else if (it->feature_id == feature_id)
         {
             it->feature_per_frame.push_back(f_per_fra);
             last_track_num++;   // 追踪到上一帧的特征点数目
         }
     }
-    // 前两帧都设置为KF，追踪过少也认为是KF
+    // 前两帧都设置为KF，追踪到的点太少也认为是KF
     if (frame_count < 2 || last_track_num < 20)
         return true;
 
@@ -104,11 +103,11 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vec
         if (it_per_id.start_frame <= frame_count - 2 && //最先看到这个特征点的帧是在现在帧的前2帧之前
             it_per_id.start_frame + int(it_per_id.feature_per_frame.size()) - 1 >= frame_count - 1)
         {
-            parallax_sum += compensatedParallax2(it_per_id, frame_count); //计算
+            parallax_sum += compensatedParallax2(it_per_id, frame_count); //计算两帧之间特征点距离之和
             parallax_num++;
         }
     }
-    // 这个和上一帧没有相同的特征点
+    // 上一帧和上上帧没有相同的特征点
     if (parallax_num == 0)
     {
         return true;
@@ -427,10 +426,11 @@ void FeatureManager::removeFront(int frame_count)
     }
 }
 
+//计算相邻两帧对应特征点距离和
 double FeatureManager::compensatedParallax2(const FeaturePerId &it_per_id, int frame_count)
 {
     //check the second last frame is keyframe or not
-    //parallax betwwen seconde last frame and third last frame
+    //parallax between seconde last frame and third last frame
     // 找到相邻两帧
     const FeaturePerFrame &frame_i = it_per_id.feature_per_frame[frame_count - 2 - it_per_id.start_frame];
     const FeaturePerFrame &frame_j = it_per_id.feature_per_frame[frame_count - 1 - it_per_id.start_frame];
