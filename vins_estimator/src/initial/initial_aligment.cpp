@@ -188,7 +188,7 @@ bool LinearAlignment(map<double, ImageFrame> &all_image_frame, Vector3d &g, Vect
         //MatrixXd cov_inv = cov.inverse();
         cov_inv.setIdentity();
 
-        MatrixXd r_A = tmp_A.transpose() * cov_inv * tmp_A;
+        MatrixXd r_A = tmp_A.transpose() * cov_inv * tmp_A;//作为平方(cov_inv为I)
         VectorXd r_b = tmp_A.transpose() * cov_inv * tmp_b;
 
         A.block<6, 6>(i * 3, i * 3) += r_A.topLeftCorner<6, 6>();

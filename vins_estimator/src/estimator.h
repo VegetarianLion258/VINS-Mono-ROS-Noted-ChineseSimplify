@@ -72,11 +72,11 @@ class Estimator
     Matrix3d ric[NUM_OF_CAM];
     Vector3d tic[NUM_OF_CAM];
 
-    Vector3d Ps[(WINDOW_SIZE + 1)];
-    Vector3d Vs[(WINDOW_SIZE + 1)];
-    Matrix3d Rs[(WINDOW_SIZE + 1)];
-    Vector3d Bas[(WINDOW_SIZE + 1)];
-    Vector3d Bgs[(WINDOW_SIZE + 1)];
+    Vector3d Ps[(WINDOW_SIZE + 1)]; //相机帧的位子
+    Vector3d Vs[(WINDOW_SIZE + 1)]; //相机帧的速度
+    Matrix3d Rs[(WINDOW_SIZE + 1)]; //相机帧的旋转
+    Vector3d Bas[(WINDOW_SIZE + 1)];//相机帧之间IMU的加速bias 
+    Vector3d Bgs[(WINDOW_SIZE + 1)];//相机帧之间的IMU的陀螺仪bias
     double td;
 
     Matrix3d back_R0, last_R, last_R0;
