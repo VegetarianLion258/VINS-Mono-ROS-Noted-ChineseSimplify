@@ -10,7 +10,7 @@ InitialEXRotation::InitialEXRotation(){
 
 /**
  * @brief // 标定imu和相机之间的旋转外参，通过imu和图像计算的旋转使用手眼标定计算获(SVD分解)
- * 
+ *          //核心算法: (L-R)*q_cb = 0, 即Ax = 0求x
  * @param[in] corres 
  * @param[in] delta_q_imu 
  * @param[out] calib_ric_result 
@@ -41,15 +41,15 @@ bool InitialEXRotation::CalibrationExRotation(vector<pair<Vector3d, Vector3d>> c
         // 一个简单的核函数, 如果角度>5度, 权重/5
         double huber = angular_distance > 5.0 ? 5.0 / angular_distance : 1.0;
         ++sum_ok;
-        Matrix4d L, R;
-
+        Matrix4d L, R; //L与R都是4*4的不是3*3
+        //相机部分
         double w = Quaterniond(Rc[i]).w();
         Vector3d q = Quaterniond(Rc[i]).vec();
         L.block<3, 3>(0, 0) = w * Matrix3d::Identity() + Utility::skewSymmetric(q);
         L.block<3, 1>(0, 3) = q;
         L.block<1, 3>(3, 0) = -q.transpose();
         L(3, 3) = w;
-
+        //IMU部分
         Quaterniond R_ij(Rimu[i]);
         w = R_ij.w();
         q = R_ij.vec();

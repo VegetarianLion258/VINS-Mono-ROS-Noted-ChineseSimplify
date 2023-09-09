@@ -418,9 +418,9 @@ bool MarginalizationFactor::Evaluate(double const *const *parameters, double *re
         int idx = marginalization_info->keep_block_idx[i] - m;  // idx起点统一到0
         Eigen::VectorXd x = Eigen::Map<const Eigen::VectorXd>(parameters[i], size); // 当前参数块的值
         Eigen::VectorXd x0 = Eigen::Map<const Eigen::VectorXd>(marginalization_info->keep_block_data[i], size); // 当时参数块的值
-        if (size != 7)
+        if (size != 7) //如果不是位姿
             dx.segment(idx, size) = x - x0; // 不需要local param的直接做差
-        else    // 代表位姿的param
+        else    // 如果是位姿的param
         {
             dx.segment<3>(idx + 0) = x.head<3>() - x0.head<3>();    // 位移直接做差
             // 旋转就是李代数做差

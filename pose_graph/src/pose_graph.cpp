@@ -104,9 +104,9 @@ void PoseGraph::addKeyFrame(KeyFrame* cur_kf, bool flag_detect_loop)
             relative_q = (cur_kf->getLoopRelativeQ()).toRotationMatrix();
             // T_w_old * T_old_cur = T_w_cur,这就是回环矫正后当前帧的位姿
             w_P_cur = w_R_old * relative_t + w_P_old;
-            w_R_cur = w_R_old * relative_q;
+            w_R_cur = w_R_old * relative_q; //TODO: 理解这块是怎么变化的
             double shift_yaw;
-            Matrix3d shift_r;
+            Matrix3d shift_r; //不同地图坐标系下的变换
             Vector3d shift_t; 
             // 回环矫正前的位姿认为是T_w'_cur
             // 下面求得是 T_w_cur * T_cur_w' = T_w_w'

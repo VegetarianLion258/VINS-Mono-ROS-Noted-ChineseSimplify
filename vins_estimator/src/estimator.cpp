@@ -737,7 +737,7 @@ void Estimator::optimization() {
   ceres::Problem problem;
   ceres::LossFunction *loss_function;
   // loss_function = new ceres::HuberLoss(1.0);
-  loss_function = new ceres::CauchyLoss(1.0);
+  loss_function = new ceres::CauchyLoss(1.0); //柯西核函数
   // Step 1 定义待优化的参数块，类似g2o的顶点
   // 参数块 1： 滑窗中位姿包括位置和姿态，共11帧
   for (int i = 0; i < WINDOW_SIZE + 1; i++) {

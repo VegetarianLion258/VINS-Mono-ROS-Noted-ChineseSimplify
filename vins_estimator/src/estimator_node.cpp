@@ -334,7 +334,7 @@ void process()
             if (relo_msg != NULL)   // 有效回环信息
             {
                 vector<Vector3d> match_points;
-                double frame_stamp = relo_msg->header.stamp.toSec();    // 回环的当前帧时间戳
+                double frame_stamp = relo_msg->header.stamp.toSec();    //最新回环帧的时间戳
                 for (unsigned int i = 0; i < relo_msg->points.size(); i++)
                 {
                     Vector3d u_v_id;

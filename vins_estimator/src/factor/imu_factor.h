@@ -9,7 +9,7 @@
 
 #include <ceres/ceres.h>
 
-class IMUFactor : public ceres::SizedCostFunction<15, 7, 9, 7, 9> //15维残差,位姿7自由度,零偏9自由度
+class IMUFactor : public ceres::SizedCostFunction<15, 7, 9, 7, 9> //15维残差,位姿7自由度,零偏+速度9自由度
 {
   public:
     IMUFactor() = delete;
